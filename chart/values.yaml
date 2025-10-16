@@ -1,10 +1,10 @@
-imageApi1: "ghcr.io/saditha93/infra-apis-test/api1:latest"
-imageApi2: "ghcr.io/saditha93/infra-apis-test/api2:latest"
+# Images must be quoted so colons (:) don't confuse YAML
+imageApi1: "ghcr.io/OWNER/infra-apis/api1:latest"
+imageApi2: "ghcr.io/OWNER/infra-apis/api2:latest"
 
 replicas: 1
 
 env:
-  MONGODB_URI: ""
   SERVICE_NAME_API1: "api1"
   SERVICE_NAME_API2: "api2"
 
@@ -13,5 +13,11 @@ hosts:
   api2: "api2.example.com"
 
 resources:
-  requests: { cpu: "50m", memory: "128Mi" }
-  limits:   { cpu: "200m", memory: "256Mi" }
+  requests:
+    cpu: "50m"
+    memory: "128Mi"
+  limits:
+    cpu: "200m"
+    memory: "256Mi"
+
+imagePullSecrets: []  # e.g., [{ name: 'ghcr' }]

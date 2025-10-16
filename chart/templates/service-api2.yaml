@@ -1,9 +1,16 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: api2
+  name: {{ include "flask-two-apis.fullname" . }}-api2
+  labels:
+    app.kubernetes.io/name: {{ include "flask-two-apis.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: api2
 spec:
-  selector: { app: api2 }
+  selector:
+    app.kubernetes.io/name: {{ include "flask-two-apis.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: api2
   ports:
     - name: http
       port: 8002

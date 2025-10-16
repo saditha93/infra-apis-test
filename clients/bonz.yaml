@@ -1,8 +1,8 @@
 imageApi1: "ghcr.io/saditha93/infra-apis-test/api1:latest"
 imageApi2: "ghcr.io/saditha93/infra-apis-test/api2:latest"
 hosts:
-  api1: "api1.bonz.com"
-  api2: "api2.bonz.com"
+  api1: "bonz_api1.recomdo.ai"
+  api2: "bonz_api1.recomdo.ai"
 env:
   SERVICE_NAME_API1: "bonz-api1"
   SERVICE_NAME_API2: "bonz-api2"

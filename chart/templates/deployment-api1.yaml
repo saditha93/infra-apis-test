@@ -1,24 +1,39 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: api1
+  name: {{ include "flask-two-apis.fullname" . }}-api1
+  labels:
+    app.kubernetes.io/name: {{ include "flask-two-apis.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: api1
 spec:
   replicas: {{ .Values.replicas }}
-  selector: { matchLabels: { app: api1 } }
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "flask-two-apis.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: api1
   template:
-    metadata: { labels: { app: api1 } }
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "flask-two-apis.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: api1
     spec:
+      {{- if .Values.imagePullSecrets }}
+      imagePullSecrets:
+      {{- range .Values.imagePullSecrets }}
+        - name: {{ .name }}
+      {{- end }}
+      {{- end }}
       containers:
         - name: api1
-          image: {{ .Values.imageApi1 }}
-          ports: [{ containerPort: 8001 }]
+          image: {{ .Values.imageApi1 | quote }}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8001
           env:
             - name: SERVICE_NAME
               value: {{ .Values.env.SERVICE_NAME_API1 | quote }}
-            - name: MONGODB_URI
-              valueFrom:
-                secretKeyRef:
-                  name: client-secrets
-                  key: mongodb_uri
           resources:
 {{- toYaml .Values.resources | nindent 12 }}

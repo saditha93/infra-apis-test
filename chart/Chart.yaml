@@ -1,4 +1,6 @@
 apiVersion: v2
 name: flask-two-apis
-version: 0.1.0
+description: Two Flask APIs behind one Ingress
 type: application
+version: 0.1.0
+appVersion: "1.0.0"
