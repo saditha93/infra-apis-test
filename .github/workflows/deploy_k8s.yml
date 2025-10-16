@@ -7,9 +7,15 @@ on:
         description: "Client key (e.g., neo-retail)"
         required: true
       image_tag:
-        description: "Image tag (defaults to latest)"
+        description: "Image tag (e.g., latest or a commit SHA)"
         required: false
         default: "latest"
+
+env:
+  REGISTRY: ghcr.io
+  OWNER: saditha93            # <-- set your GitHub user/org here
+  REPO: infra-apis-test            # <-- your repo name
+  NAMESPACE: ${{ secrets.K8S_NAMESPACE }}  # e.g., default or clients-prod
 
 jobs:
   deploy:
@@ -18,10 +24,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Use image tag input
+      - name: Set images from inputs
         run: |
           echo "IMAGE_TAG=${{ github.event.inputs.image_tag }}" >> $GITHUB_ENV
-          sed -i "s#:latest#:${{ env.IMAGE_TAG }}#g" clients/${{ github.event.inputs.client }}.yaml
+          echo "IMAGE_API1=${{ env.REGISTRY }}/${{ env.OWNER }}/${{ env.REPO }}/api1:${{ github.event.inputs.image_tag }}" >> $GITHUB_ENV
+          echo "IMAGE_API2=${{ env.REGISTRY }}/${{ env.OWNER }}/${{ env.REPO }}/api2:${{ github.event.inputs.image_tag }}" >> $GITHUB_ENV
+          echo "CLIENT=${{ github.event.inputs.client }}" >> $GITHUB_ENV
+          echo "Using images:"
+          echo "  $IMAGE_API1"
+          echo "  $IMAGE_API2"
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
@@ -33,17 +44,79 @@ jobs:
         with:
           version: v3.14.4
 
-      - name: Write kubeconfig from secret & verify
+      - name: Write kubeconfig from secret & verify access
         run: |
           mkdir -p ~/.kube
           echo "${{ secrets.KUBECONFIG_B64 }}" | base64 -d > ~/.kube/config
           chmod 600 ~/.kube/config
           kubectl cluster-info
-          kubectl get nodes
+          kubectl get nodes -o wide
+
+      # OPTIONAL: only if your GHCR packages are PRIVATE
+      - name: Create/Update GHCR imagePullSecret (optional)
+        if: ${{ secrets.GHCR_USERNAME != '' && secrets.GHCR_PAT != '' }}
+        run: |
+          kubectl -n "${{ env.NAMESPACE }}" create secret docker-registry ghcr \
+            --docker-server=ghcr.io \
+            --docker-username="${{ secrets.GHCR_USERNAME }}" \
+            --docker-password="${{ secrets.GHCR_PAT }}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+          echo "imagePullSecrets:
+  - name: ghcr" > chart/imagepullsecrets.patch.yaml
+
+      - name: Helm lint & template (upload rendered manifests for debug)
+        run: |
+          helm lint ./chart -f clients/${CLIENT}.yaml || true
+          # Render with explicit images & optional pull secrets
+          EXTRA="-f clients/${CLIENT}.yaml --set imageApi1=${IMAGE_API1} --set imageApi2=${IMAGE_API2}"
+          if [ -f chart/imagepullsecrets.patch.yaml ]; then
+            # merge a small values fragment to enable imagePullSecrets
+            EXTRA="$EXTRA -f chart/imagepullsecrets.patch.yaml"
+          fi
+          helm template "${CLIENT}" ./chart $EXTRA > rendered.yaml
+          echo "---- Rendered images ----"
+          grep -n 'image:' -n rendered.yaml || true
+        shell: bash
+
+      - name: Upload rendered manifests (artifact)
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendered-${{ env.CLIENT }}
+          path: rendered.yaml
+
+      - name: Ensure namespace exists
+        run: |
+          kubectl get ns "${{ env.NAMESPACE }}" >/dev/null 2>&1 || kubectl create ns "${{ env.NAMESPACE }}"
 
       - name: Helm upgrade --install
         run: |
-          helm upgrade --install ${{ github.event.inputs.client }} ./chart \
-            --namespace ${{ secrets.K8S_NAMESPACE }} \
+          EXTRA="-f clients/${CLIENT}.yaml --set imageApi1=${IMAGE_API1} --set imageApi2=${IMAGE_API2}"
+          if [ -f chart/imagepullsecrets.patch.yaml ]; then
+            EXTRA="$EXTRA -f chart/imagepullsecrets.patch.yaml"
+          fi
+          # IMPORTANT: set the ingressClassName in your chart (see step 2)
+          helm upgrade --install "${CLIENT}" ./chart \
+            --namespace "${{ env.NAMESPACE }}" \
             --create-namespace \
-            -f clients/${{ github.event.inputs.client }}.yaml
+            $EXTRA
+
+      - name: Wait for rollout & show status
+        run: |
+          # Replace with your real deploy names if you changed helpers
+          D1=$(kubectl -n "${{ env.NAMESPACE }}" get deploy -o name | grep "${CLIENT}-api1" || true)
+          D2=$(kubectl -n "${{ env.NAMESPACE }}" get deploy -o name | grep "${CLIENT}-api2" || true)
+          set -x
+          [ -n "$D1" ] && kubectl -n "${{ env.NAMESPACE }}" rollout status "$D1" --timeout=180s || true
+          [ -n "$D2" ] && kubectl -n "${{ env.NAMESPACE }}" rollout status "$D2" --timeout=180s || true
+          kubectl -n "${{ env.NAMESPACE }}" get deploy,rs,pods,svc,ingress -o wide
+
+      - name: If failing, dump pod describe/logs (best-effort)
+        if: failure()
+        run: |
+          kubectl -n "${{ env.NAMESPACE }}" get pods -o wide
+          for p in $(kubectl -n "${{ env.NAMESPACE }}" get pods -o name); do
+            echo "---- DESCRIBE $p ----"
+            kubectl -n "${{ env.NAMESPACE }}" describe $p || true
+            echo "---- LOGS $p ----"
+            kubectl -n "${{ env.NAMESPACE }}" logs $p --all-containers --tail=200 || true
+          done
