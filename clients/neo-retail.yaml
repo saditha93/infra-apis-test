@@ -1,0 +1,9 @@
+imageApi1: "ghcr.io/saditha93/infra-apis-test/api1:latest"
+imageApi2: "ghcr.io/saditha93/infra-apis-test/api2:latest"
+hosts:
+  api1: "api1.neo-retail.com"
+  api2: "api2.neo-retail.com"
+env:
+  SERVICE_NAME_API1: "neo-api1"
+  SERVICE_NAME_API2: "neo-api2"
+replicas: 2

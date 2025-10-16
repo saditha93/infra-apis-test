@@ -1,0 +1,28 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: two-apis
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  tls:
+    - hosts:
+        - {{ .Values.hosts.api1 }}
+        - {{ .Values.hosts.api2 }}
+      secretName: tls-two-apis
+  rules:
+    - host: {{ .Values.hosts.api1 }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: api1, port: { number: 8001 } }
+    - host: {{ .Values.hosts.api2 }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: api2, port: { number: 8002 } }

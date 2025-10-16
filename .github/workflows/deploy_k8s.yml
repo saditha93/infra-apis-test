@@ -1,0 +1,50 @@
+name: deploy-k8s
+
+on:
+  workflow_dispatch:
+    inputs:
+      client:
+        description: "Client key (e.g., neo-retail, bonz)"
+        required: true
+      image_tag:
+        description: "Image tag (defaults to latest)"
+        required: false
+        default: "latest"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set images with provided tag
+        run: |
+          echo "IMAGE_TAG=${{ github.event.inputs.image_tag }}" >> $GITHUB_ENV
+          sed -i "s#:latest#:${{ env.IMAGE_TAG }}#g" clients/${{ github.event.inputs.client }}.yaml
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with: { version: v1.30.0 }
+
+      - name: Setup kubeconfig
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG_B64 }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Add Helm
+        uses: azure/setup-helm@v4
+        with: { version: v3.14.4 }
+
+      - name: Create/Update client secret (MongoDB Atlas)
+        run: |
+          kubectl -n ${{ secrets.K8S_NAMESPACE }} create secret generic client-secrets \
+            --from-literal=mongodb_uri="${{ secrets.MONGODB_URI }}" \
+            --dry-run=client -o yaml | kubectl -n ${{ secrets.K8S_NAMESPACE }} apply -f -
+
+      - name: Helm upgrade --install
+        run: |
+          helm upgrade --install ${{ github.event.inputs.client }} ./chart \
+            --namespace ${{ secrets.K8S_NAMESPACE }} \
+            --create-namespace \
+            -f clients/${{ github.event.inputs.client }}.yaml

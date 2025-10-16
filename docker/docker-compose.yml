@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   api1:
-    image: ghcr.io/OWNER/infra-apis/api1:latest
+    image: ghcr.io/saditha93/infra-apis-test/api1:latest
     env_file: .env
     environment:
       - SERVICE_NAME=api1
@@ -10,7 +10,7 @@ services:
     restart: unless-stopped
 
   api2:
-    image: ghcr.io/OWNER/infra-apis/api2:latest
+    image: ghcr.io/saditha93/infra-apis-test/api2:latest
     env_file: .env
     environment:
       - SERVICE_NAME=api2

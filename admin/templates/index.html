@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Deploy Center</title>
+  <style>
+    body { font: 16px/1.4 system-ui, sans-serif; max-width: 720px; margin: 40px auto; }
+    form { display: flex; gap: 12px; margin-bottom: 12px; align-items: center; }
+    button { padding: 8px 14px; }
+    .flash { padding: 8px 12px; margin: 10px 0; border-radius: 6px; }
+    .success { background: #e8f5e9; }
+    .error { background: #ffebee; }
+  </style>
+</head>
+<body>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for cat, msg in messages %}
+        <div class="flash {{cat}}">{{ msg }}</div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <h1>Client Deploys</h1>
+  {% for c in clients %}
+    <form method="post" action="/deploy">
+      <strong>{{ c.label }}</strong>
+      <input type="hidden" name="client" value="{{ c.key }}">
+      <label>Tag
+        <input name="image_tag" placeholder="latest or sha">
+      </label>
+      <button type="submit">Deploy</button>
+    </form>
+  {% endfor %}
+</body>
+</html>

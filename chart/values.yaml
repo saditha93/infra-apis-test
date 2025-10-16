@@ -1,0 +1,17 @@
+imageApi1: "ghcr.io/saditha93/infra-apis-test/api1:latest"
+imageApi2: "ghcr.io/saditha93/infra-apis-test/api2:latest"
+
+replicas: 1
+
+env:
+  MONGODB_URI: ""
+  SERVICE_NAME_API1: "api1"
+  SERVICE_NAME_API2: "api2"
+
+hosts:
+  api1: "api1.example.com"
+  api2: "api2.example.com"
+
+resources:
+  requests: { cpu: "50m", memory: "128Mi" }
+  limits:   { cpu: "200m", memory: "256Mi" }
