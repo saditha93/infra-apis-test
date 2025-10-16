@@ -1,0 +1,10 @@
+hcloud_token          = "HCLOUD_TOKEN_HERE"
+cloudflare_api_token  = "CLOUDFLARE_API_TOKEN_HERE"
+
+ssh_pubkey_path = "~/.ssh/id_ed25519.pub"
+
+cloudflare_zone = "example.com"
+api1_host       = "api1.example.com"
+api2_host       = "api2.example.com"
+
+enable_cf_proxy = true

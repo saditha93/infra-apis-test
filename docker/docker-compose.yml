@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  api1:
+    image: ghcr.io/OWNER/infra-apis/api1:latest
+    env_file: .env
+    environment:
+      - SERVICE_NAME=api1
+      - MONGODB_URI=${MONGODB_URI}
+    restart: unless-stopped
+
+  api2:
+    image: ghcr.io/OWNER/infra-apis/api2:latest
+    env_file: .env
+    environment:
+      - SERVICE_NAME=api2
+      - MONGODB_URI=${MONGODB_URI}
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - API1_HOST=${API1_HOST}
+      - API2_HOST=${API2_HOST}
+    depends_on:
+      - api1
+      - api2
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

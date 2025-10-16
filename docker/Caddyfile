@@ -1,0 +1,7 @@
+{$API1_HOST} {
+    reverse_proxy api1:8001
+}
+
+{$API2_HOST} {
+    reverse_proxy api2:8002
+}
