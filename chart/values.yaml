@@ -10,7 +10,7 @@ env:
 
 hosts:
   api1: "api1-test.recomdo.ai"
-  api2: "api1-test.recomdo.ai"
+  api2: "api2-test.recomdo.ai"
 
 resources:
   requests:
