@@ -4,10 +4,10 @@ on:
   workflow_dispatch:
     inputs:
       client:
-        description: "Client key (matches a file in clients/, e.g. neo-retail)"
+        description: "Client key (e.g., neo-retail)"
         required: true
       image_tag:
-        description: "Image tag to deploy (e.g., latest or a commit SHA)"
+        description: "Image tag (defaults to latest)"
         required: false
         default: "latest"
 
@@ -16,59 +16,34 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Apply image tag to client values
+      - name: Use image tag input
         run: |
           echo "IMAGE_TAG=${{ github.event.inputs.image_tag }}" >> $GITHUB_ENV
           sed -i "s#:latest#:${{ env.IMAGE_TAG }}#g" clients/${{ github.event.inputs.client }}.yaml
 
-      - name: Copy chart & client values to server
-        uses: appleboy/scp-action@v1
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          port: ${{ secrets.PORT }}
-          source: "chart/*,clients/${{ github.event.inputs.client }}.yaml"
-          target: "~/infra-apis/"
-          overwrite: true
-          debug: true
+          version: v1.30.0
 
-      - name: Run Helm upgrade/install on server
-        uses: appleboy/ssh-action@v1.2.0
+      - name: Install Helm
+        uses: azure/setup-helm@v4
         with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          debug: true
-          script: |
-            set -e
+          version: v3.14.4
 
-            # Ensure tools exist (idempotent)
-            if ! command -v helm >/dev/null; then
-              curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-            fi
-            if ! command -v kubectl >/dev/null; then
-              curl -LO https://dl.k8s.io/release/v1.30.0/bin/linux/amd64/kubectl
-              chmod +x kubectl && sudo mv kubectl /usr/local/bin/
-            fi
+      - name: Write kubeconfig from secret & verify
+        run: |
+          mkdir -p ~/.kube
+          echo "${{ secrets.KUBECONFIG_B64 }}" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+          kubectl cluster-info
+          kubectl get nodes
 
-            # Confirm cluster is reachable (uses local /etc/rancher/k3s/k3s.yaml)
-            kubectl cluster-info
-
-            cd ~/infra-apis
-
-            # Create namespace if needed (Helm flag also does this, but explicit is fine)
-            kubectl get ns ${{ secrets.K8S_NAMESPACE }} >/dev/null 2>&1 || \
-              kubectl create ns ${{ secrets.K8S_NAMESPACE }}
-
-            # Deploy/upgrade the client release using your chart & client values
-            helm upgrade --install ${{ github.event.inputs.client }} ./chart \
-              --namespace ${{ secrets.K8S_NAMESPACE }} \
-              -f clients/${{ github.event.inputs.client }}.yaml
-
-            # Optional: show rollout status for both deploys if labeled or known names
-            kubectl -n ${{ secrets.K8S_NAMESPACE }} rollout status deploy/api1 --timeout=120s || true
-            kubectl -n ${{ secrets.K8S_NAMESPACE }} rollout status deploy/api2 --timeout=120s || true
+      - name: Helm upgrade --install
+        run: |
+          helm upgrade --install ${{ github.event.inputs.client }} ./chart \
+            --namespace ${{ secrets.K8S_NAMESPACE }} \
+            --create-namespace \
+            -f clients/${{ github.event.inputs.client }}.yaml
