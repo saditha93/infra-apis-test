@@ -1,6 +1,6 @@
 # Images must be quoted so colons (:) don't confuse YAML
-imageApi1: "ghcr.io/OWNER/infra-apis/api1:latest"
-imageApi2: "ghcr.io/OWNER/infra-apis/api2:latest"
+imageApi1: "ghcr.io/saditha93/infra-apis/api1:latest"
+imageApi2: "ghcr.io/saditha93/infra-apis/api2:latest"
 
 replicas: 1
 
@@ -9,8 +9,8 @@ env:
   SERVICE_NAME_API2: "api2"
 
 hosts:
-  api1: "api1.example.com"
-  api2: "api2.example.com"
+  api1: "api1-test.recomdo.ai"
+  api2: "api1-test.recomdo.ai"
 
 resources:
   requests:
