@@ -8,5 +8,5 @@ env:
   SERVICE_NAME_API2: "neo-api2"
 
 hosts:
-  api1: "api1_test.recomdo.ai"
-  api2: "api1_test.recomdo.ai"
+  api1: "api1-test.recomdo.ai"
+  api2: "api1-test.recomdo.ai"
