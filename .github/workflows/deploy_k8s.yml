@@ -24,12 +24,19 @@ jobs:
           echo "IMAGE_TAG=${{ github.event.inputs.image_tag }}" >> $GITHUB_ENV
           sed -i "s#:latest#:${{ env.IMAGE_TAG }}#g" clients/${{ github.event.inputs.client }}.yaml
 
+      - name: Setup SSH key
+        run: |
+          # Write multi-line key to file
+          echo "${{ secrets.SERVER_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+        shell: bash
+
       - name: Copy chart & client values to server
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
+          key_path: ~/.ssh/id_rsa
           source: "chart/*,clients/${{ github.event.inputs.client }}.yaml"
           target: "~/infra-apis/"
           overwrite: true
@@ -40,12 +47,12 @@ jobs:
         with:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
+          key_path: ~/.ssh/id_rsa
           debug: true
           script: |
             set -e
 
-            # Ensure tools exist (idempotent)
+            # Ensure tools exist
             if ! command -v helm >/dev/null; then
               curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
             fi
@@ -54,20 +61,20 @@ jobs:
               chmod +x kubectl && sudo mv kubectl /usr/local/bin/
             fi
 
-            # Confirm cluster is reachable (uses local /etc/rancher/k3s/k3s.yaml)
+            # Confirm cluster is reachable
             kubectl cluster-info
 
             cd ~/infra-apis
 
-            # Create namespace if needed (Helm flag also does this, but explicit is fine)
+            # Create namespace if needed
             kubectl get ns ${{ secrets.K8S_NAMESPACE }} >/dev/null 2>&1 || \
               kubectl create ns ${{ secrets.K8S_NAMESPACE }}
 
-            # Deploy/upgrade the client release using your chart & client values
+            # Deploy/upgrade the client release
             helm upgrade --install ${{ github.event.inputs.client }} ./chart \
               --namespace ${{ secrets.K8S_NAMESPACE }} \
               -f clients/${{ github.event.inputs.client }}.yaml
 
-            # Optional: show rollout status for both deploys if labeled or known names
+            # Optional: show rollout status for both deploys
             kubectl -n ${{ secrets.K8S_NAMESPACE }} rollout status deploy/api1 --timeout=120s || true
             kubectl -n ${{ secrets.K8S_NAMESPACE }} rollout status deploy/api2 --timeout=120s || true
