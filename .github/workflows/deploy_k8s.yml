@@ -33,6 +33,7 @@ jobs:
           source: "chart/*,clients/${{ github.event.inputs.client }}.yaml"
           target: "~/infra-apis/"
           overwrite: true
+          debug: true
 
       - name: Run Helm upgrade/install on server
         uses: appleboy/ssh-action@v1.2.0
